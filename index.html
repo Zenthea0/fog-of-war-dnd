@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fog of War - D&D Map Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-darkest: #0a0a0c;
+      --bg-dark: #12121a;
+      --bg-medium: #1a1a24;
+      --bg-light: #252532;
+      --bg-lighter: #2f2f40;
+      --text-primary: #e8e6e3;
+      --text-secondary: #a09c94;
+      --text-muted: #6b6860;
+      --accent-gold: #c9a227;
+      --accent-gold-light: #e3c754;
+      --accent-gold-dark: #8b7019;
+      --accent-red: #8b3a3a;
+      --accent-red-light: #a85454;
+      --accent-green: #3a6b3a;
+      --accent-green-light: #4a8b4a;
+      --border-color: #3a3a4a;
+      --shadow-dark: rgba(0, 0, 0, 0.5);
+      --fog-color: #1a1a2e;
+      --font-display: 'Cinzel', serif;
+      --font-body: 'Crimson Text', serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-body);
+      background: var(--bg-darkest);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-dark); }
+    ::-webkit-scrollbar-thumb { background: var(--bg-lighter); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent-gold-dark); }
+
+    h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.05em; }
+
+    .btn {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      padding: 0.6rem 1.2rem;
+      border: 1px solid var(--border-color);
+      background: var(--bg-medium);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 0.05em;
+    }
+    .btn:hover { background: var(--bg-light); border-color: var(--accent-gold-dark); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-gold-dark), var(--accent-gold));
+      border-color: var(--accent-gold);
+      color: var(--bg-darkest);
+      font-weight: 600;
+    }
+    .btn-primary:hover { background: linear-gradient(135deg, var(--accent-gold), var(--accent-gold-light)); }
+    .btn-danger { background: var(--accent-red); border-color: var(--accent-red-light); }
+    .btn-danger:hover { background: var(--accent-red-light); }
+    .btn-success { background: var(--accent-green); border-color: var(--accent-green-light); }
+    .btn-success:hover { background: var(--accent-green-light); }
+    .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
+    .btn-icon { width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+
+    input[type="text"], input[type="password"], input[type="number"], select {
+      font-family: var(--font-body);
+      font-size: 1rem;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid var(--border-color);
+      background: var(--bg-dark);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus, select:focus { border-color: var(--accent-gold); }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: var(--bg-light);
+      border-radius: 3px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: var(--accent-gold);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+    #login-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+      background: radial-gradient(ellipse at top, var(--bg-medium) 0%, transparent 50%),
+                  radial-gradient(ellipse at bottom, var(--bg-dark) 0%, transparent 50%),
+                  var(--bg-darkest);
+    }
+
+    .login-container {
+      background: var(--bg-dark);
+      border: 1px solid var(--border-color);
+      padding: 3rem;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 60px var(--shadow-dark);
+    }
+    .login-container h1 { font-size: 1.8rem; margin-bottom: 0.5rem; color: var(--accent-gold); }
+    .login-container .subtitle { color: var(--text-secondary); margin-bottom: 2rem; font-style: italic; }
+    .login-options { display: flex; flex-direction: column; gap: 1rem; }
+    .login-options .btn { width: 100%; padding: 1rem; }
+    .password-section { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); display: none; }
+    .password-section.active { display: block; }
+    .password-section input { width: 100%; margin-bottom: 1rem; }
+
+    #app { display: none; height: 100vh; }
+    #app.active { display: flex; }
+
+    .sidebar {
+      width: 280px;
+      background: var(--bg-dark);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      flex-shrink: 0;
+    }
+    .sidebar-header { padding: 1.2rem; border-bottom: 1px solid var(--border-color); background: var(--bg-medium); }
+    .sidebar-header h2 { font-size: 1rem; color: var(--accent-gold); display: flex; align-items: center; gap: 0.5rem; }
+    .sidebar-header .image-count { font-family: var(--font-body); font-size: 0.85rem; color: var(--text-secondary); font-weight: normal; }
+    .sidebar-actions { padding: 1rem; display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-color); }
+    .sidebar-actions .btn { flex: 1; font-size: 0.75rem; }
+    .folder-list { flex: 1; overflow-y: auto; padding: 0.5rem; }
+
+    .folder { margin-bottom: 0.5rem; }
+    .folder-header { display: flex; align-items: center; padding: 0.5rem; cursor: pointer; border-radius: 4px; transition: background 0.2s; }
+    .folder-header:hover { background: var(--bg-light); }
+    .folder-header .folder-icon { margin-right: 0.5rem; transition: transform 0.2s; }
+    .folder-header.collapsed .folder-icon { transform: rotate(-90deg); }
+    .folder-name { flex: 1; font-size: 0.9rem; }
+    .folder-actions { opacity: 0; display: flex; gap: 0.25rem; }
+    .folder-header:hover .folder-actions { opacity: 1; }
+    .image-list { padding-left: 1.5rem; }
+
+    .image-item {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+      font-size: 0.85rem;
+    }
+    .image-item:hover { background: var(--bg-light); }
+    .image-item.selected { background: var(--bg-lighter); border-left: 2px solid var(--accent-gold); }
+    .image-item .image-icon { margin-right: 0.5rem; color: var(--text-muted); }
+    .image-item .image-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .image-item .published-badge { font-size: 0.7rem; padding: 0.15rem 0.4rem; background: var(--accent-green); border-radius: 3px; margin-left: 0.5rem; }
+    .image-item-actions { opacity: 0; display: flex; gap: 0.25rem; }
+    .image-item:hover .image-item-actions { opacity: 1; }
+    .root-images { padding: 0.5rem; border-top: 1px solid var(--border-color); }
+
+    .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      padding: 0.8rem 1rem;
+      background: var(--bg-medium);
+      border-bottom: 1px solid var(--border-color);
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .toolbar-section { display: flex; align-items: center; gap: 0.5rem; padding: 0 1rem; border-right: 1px solid var(--border-color); }
+    .toolbar-section:last-child { border-right: none; }
+    .toolbar-label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.1em; }
+    .brush-size-display { width: 40px; text-align: center; font-size: 0.85rem; }
+    .brush-preview { width: 40px; height: 40px; border: 1px solid var(--border-color); background: var(--bg-dark); display: flex; align-items: center; justify-content: center; }
+    .brush-preview-inner { background: var(--fog-color); transition: all 0.2s; }
+    .opacity-value { width: 50px; text-align: center; font-size: 0.85rem; }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: repeating-linear-gradient(45deg, var(--bg-darkest) 0px, var(--bg-darkest) 10px, var(--bg-dark) 10px, var(--bg-dark) 20px);
+    }
+    .canvas-wrapper { position: absolute; top: 50%; left: 50%; transform-origin: center center; cursor: crosshair; }
+    #map-canvas, #fog-canvas, #preview-canvas { position: absolute; top: 0; left: 0; }
+    #map-canvas { z-index: 1; }
+    #fog-canvas { z-index: 2; pointer-events: none; }
+    #preview-canvas { z-index: 3; pointer-events: none; display: none; }
+
+    .empty-state { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--text-muted); }
+    .empty-state-icon { font-size: 4rem; margin-bottom: 1rem; opacity: 0.5; }
+    .empty-state h3 { margin-bottom: 0.5rem; color: var(--text-secondary); }
+
+    .zoom-controls { position: absolute; bottom: 1rem; right: 1rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 10; }
+    .zoom-level { text-align: center; font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-dark); padding: 0.25rem 0.5rem; border-radius: 4px; }
+
+    .actions-bar { display: flex; align-items: center; justify-content: space-between; padding: 1rem; background: var(--bg-dark); border-top: 1px solid var(--border-color); }
+    .actions-bar-left, .actions-bar-right { display: flex; gap: 0.5rem; }
+
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.8); z-index: 1000; align-items: center; justify-content: center; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: var(--bg-dark); border: 1px solid var(--border-color); max-width: 90vw; max-height: 90vh; overflow: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); background: var(--bg-medium); }
+    .modal-header h3 { font-size: 1.1rem; color: var(--accent-gold); }
+    .modal-body { padding: 1.5rem; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-color); background: var(--bg-medium); }
+
+    .preview-modal .modal { width: 90vw; height: 90vh; display: flex; flex-direction: column; }
+    .preview-modal .modal-body { flex: 1; display: flex; align-items: center; justify-content: center; background: var(--bg-darkest); padding: 1rem; overflow: hidden; }
+    .preview-modal .preview-image { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); }
+    .form-group input, .form-group select { width: 100%; }
+
+    .player-view { height: 100vh; display: flex; flex-direction: column; }
+    .player-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem; background: var(--bg-dark); border-bottom: 1px solid var(--border-color); }
+    .player-header h1 { font-size: 1.2rem; color: var(--accent-gold); }
+    .player-toolbar { display: flex; gap: 0.5rem; }
+    .player-sidebar { width: 200px; background: var(--bg-dark); border-right: 1px solid var(--border-color); overflow-y: auto; }
+    .player-sidebar h3 { padding: 1rem; font-size: 0.9rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
+    .player-image-list { padding: 0.5rem; }
+    .player-image-item { padding: 0.75rem; cursor: pointer; border-radius: 4px; font-size: 0.9rem; transition: background 0.2s; }
+    .player-image-item:hover { background: var(--bg-light); }
+    .player-image-item.selected { background: var(--bg-lighter); border-left: 2px solid var(--accent-gold); }
+    .player-main { flex: 1; display: flex; overflow: hidden; }
+    .player-canvas-container { flex: 1; position: relative; overflow: hidden; background: var(--bg-darkest); }
+
+    .marker {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      background: var(--accent-gold);
+      border: 2px solid var(--bg-darkest);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--bg-darkest);
+      cursor: pointer;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s, background 0.2s;
+    }
+    .marker:hover { transform: translate(-50%, -50%) scale(1.2); background: var(--accent-gold-light); }
+
+    .loading-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 12, 0.9); z-index: 2000; align-items: center; justify-content: center; flex-direction: column; }
+    .loading-overlay.active { display: flex; }
+    .loading-spinner { width: 50px; height: 50px; border: 3px solid var(--bg-lighter); border-top-color: var(--accent-gold); border-radius: 50%; animation: spin 1s linear infinite; }
+    .loading-text { margin-top: 1rem; color: var(--text-secondary); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .toast-container { position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%); z-index: 3000; display: flex; flex-direction: column; gap: 0.5rem; }
+    .toast { padding: 0.75rem 1.5rem; background: var(--bg-medium); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 0.9rem; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); animation: toastIn 0.3s ease; }
+    .toast.success { border-color: var(--accent-green); }
+    .toast.error { border-color: var(--accent-red); }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; height: auto; max-height: 40vh; border-right: none; border-bottom: 1px solid var(--border-color); }
+      #app.active { flex-direction: column; }
+      .toolbar { overflow-x: auto; flex-wrap: nowrap; }
+      .toolbar-section { flex-shrink: 0; }
+      .player-sidebar { display: none; }
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen">
+    <div class="login-container">
+      <h1>⚔️ Fog of War</h1>
+      <p class="subtitle">Gestionnaire de cartes pour D&D</p>
+      <div class="login-options">
+        <button class="btn btn-primary" onclick="showPlayerView()">🎭 Entrer comme Joueur</button>
+        <button class="btn" onclick="showGMLogin()">🗡️ Entrer comme Maître du Jeu</button>
+      </div>
+      <div id="gm-password-section" class="password-section">
+        <input type="password" id="gm-password" placeholder="Mot de passe MJ" onkeypress="if(event.key==='Enter')loginAsGM()">
+        <button class="btn btn-primary" onclick="loginAsGM()" style="width: 100%;">Connexion</button>
+        <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">Mot de passe par défaut : dragon123</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- GM App -->
+  <div id="app">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>📜 <span>Mes Cartes</span> <span class="image-count" id="image-count">(0/20)</span></h2>
+      </div>
+      <div class="sidebar-actions">
+        <button class="btn btn-sm" onclick="importImage()">📥 Importer</button>
+        <button class="btn btn-sm" onclick="createFolder()">📁 Dossier</button>
+        <button class="btn btn-sm" onclick="showSettings()">⚙️</button>
+      </div>
+      <div class="folder-list" id="folder-list"></div>
+      <div class="root-images" id="root-images"></div>
+    </aside>
+
+    <main class="main-content">
+      <div class="toolbar" id="gm-toolbar">
+        <div class="toolbar-section">
+          <span class="toolbar-label">Mode</span>
+          <button class="btn btn-sm btn-primary" id="brush-add" onclick="setBrushMode('add')">➕ Brouillard</button>
+          <button class="btn btn-sm" id="brush-remove" onclick="setBrushMode('remove')">➖ Révéler</button>
+        </div>
+        <div class="toolbar-section">
+          <span class="toolbar-label">Forme</span>
+          <button class="btn btn-sm btn-icon btn-primary" id="shape-circle" onclick="setBrushShape('circle')" title="Rond">⬤</button>
+          <button class="btn btn-sm btn-icon" id="shape-square" onclick="setBrushShape('square')" title="Carré">⬛</button>
+        </div>
+        <div class="toolbar-section">
+          <span class="toolbar-label">Taille</span>
+          <input type="range" id="brush-size" min="5" max="200" value="30" style="width: 100px;" oninput="updateBrushSize(this.value)">
+          <span class="brush-size-display" id="brush-size-display">30px</span>
+          <div class="brush-preview"><div class="brush-preview-inner" id="brush-preview-inner"></div></div>
+        </div>
+        <div class="toolbar-section">
+          <span class="toolbar-label">Opacité MJ</span>
+          <input type="range" id="fog-opacity" min="0" max="100" value="70" style="width: 80px;" oninput="updateFogOpacity(this.value)">
+          <span class="opacity-value" id="opacity-display">70%</span>
+        </div>
+        <div class="toolbar-section">
+          <button class="btn btn-sm btn-danger" onclick="fillAllFog()">🌫️ Tout couvrir</button>
+          <button class="btn btn-sm" onclick="clearAllFog()">☀️ Tout révéler</button>
+        </div>
+      </div>
+
+      <div class="canvas-container" id="canvas-container">
+        <div class="empty-state" id="empty-state">
+          <div class="empty-state-icon">🗺️</div>
+          <h3>Aucune carte sélectionnée</h3>
+          <p>Importez une image ou sélectionnez une carte existante</p>
+        </div>
+        <div class="canvas-wrapper" id="canvas-wrapper" style="display: none;">
+          <canvas id="map-canvas"></canvas>
+          <canvas id="fog-canvas"></canvas>
+        </div>
+        <div class="zoom-controls">
+          <button class="btn btn-icon" onclick="zoomIn()">➕</button>
+          <div class="zoom-level" id="zoom-level">100%</div>
+          <button class="btn btn-icon" onclick="zoomOut()">➖</button>
+          <button class="btn btn-icon" onclick="resetZoom()">↺</button>
+        </div>
+      </div>
+
+      <div class="actions-bar" id="gm-actions">
+        <div class="actions-bar-left">
+          <button class="btn" onclick="exportBackup()">💾 Sauvegarder tout</button>
+          <input type="file" id="import-backup-input" accept=".json" onchange="importBackup(event)" class="hidden">
+          <button class="btn" onclick="document.getElementById('import-backup-input').click()">📂 Restaurer</button>
+        </div>
+        <div class="actions-bar-right">
+          <button class="btn" onclick="showPreview()">👁️ Prévisualiser</button>
+          <button class="btn btn-primary btn-success" onclick="publishFog()">✅ Publier aux joueurs</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Player View -->
+  <div id="player-view" class="player-view" style="display: none;">
+    <header class="player-header">
+      <h1>🗺️ Fog of War - Vue Joueur</h1>
+      <div class="player-toolbar">
+        <button class="btn btn-sm" id="marker-mode-btn" onclick="toggleMarkerMode()">📍 Marqueurs</button>
+        <button class="btn btn-sm" onclick="showExportModal()">📥 Exporter</button>
+        <button class="btn btn-sm" onclick="backToLogin()">🚪 Quitter</button>
+      </div>
+    </header>
+    <div class="player-main">
+      <aside class="player-sidebar">
+        <h3>Cartes disponibles</h3>
+        <div class="player-image-list" id="player-image-list"></div>
+      </aside>
+      <div class="player-canvas-container" id="player-canvas-container">
+        <div class="empty-state" id="player-empty-state">
+          <div class="empty-state-icon">🗺️</div>
+          <h3>En attente d'une carte</h3>
+          <p>Le Maître du Jeu n'a pas encore publié de carte</p>
+        </div>
+        <div class="canvas-wrapper" id="player-canvas-wrapper" style="display: none;">
+          <canvas id="player-map-canvas"></canvas>
+          <canvas id="player-fog-canvas"></canvas>
+          <div id="markers-container"></div>
+        </div>
+        <div class="zoom-controls">
+          <button class="btn btn-icon" onclick="playerZoomIn()">➕</button>
+          <div class="zoom-level" id="player-zoom-level">100%</div>
+          <button class="btn btn-icon" onclick="playerZoomOut()">➖</button>
+          <button class="btn btn-icon" onclick="playerResetZoom()">↺</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div class="modal-overlay preview-modal" id="preview-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>👁️ Aperçu - Vue des joueurs</h3>
+        <button class="btn btn-sm" onclick="closePreview()">✕</button>
+      </div>
+      <div class="modal-body"><img id="preview-image" class="preview-image" alt="Aperçu"></div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closePreview()">Annuler</button>
+        <button class="btn btn-primary btn-success" onclick="confirmPublish()">✅ Confirmer la publication</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settings-modal">
+    <div class="modal" style="width: 400px;">
+      <div class="modal-header">
+        <h3>⚙️ Paramètres</h3>
+        <button class="btn btn-sm" onclick="closeSettings()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Changer le mot de passe MJ</label>
+          <input type="password" id="new-password" placeholder="Nouveau mot de passe">
+        </div>
+        <div class="form-group">
+          <label>Confirmer le mot de passe</label>
+          <input type="password" id="confirm-password" placeholder="Confirmer">
+        </div>
+        <button class="btn btn-primary" onclick="changePassword()" style="width: 100%;">Changer le mot de passe</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="rename-modal">
+    <div class="modal" style="width: 400px;">
+      <div class="modal-header">
+        <h3>✏️ Renommer</h3>
+        <button class="btn btn-sm" onclick="closeRenameModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Nouveau nom</label>
+          <input type="text" id="rename-input" placeholder="Nom" onkeypress="if(event.key==='Enter')confirmRename()">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeRenameModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="confirmRename()">Renommer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="move-modal">
+    <div class="modal" style="width: 400px;">
+      <div class="modal-header">
+        <h3>📁 Déplacer vers un dossier</h3>
+        <button class="btn btn-sm" onclick="closeMoveModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Dossier de destination</label>
+          <select id="move-folder-select"><option value="">-- Aucun dossier (racine) --</option></select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeMoveModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="confirmMove()">Déplacer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="export-modal">
+    <div class="modal" style="width: 400px;">
+      <div class="modal-header">
+        <h3>📥 Exporter l'image</h3>
+        <button class="btn btn-sm" onclick="closeExportModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label><input type="checkbox" id="export-with-markers" checked> Inclure les marqueurs</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeExportModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="confirmExport()">Exporter PNG</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Chargement...</div>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <input type="file" id="import-image-input" accept="image/jpeg,image/png" onchange="handleImageImport(event)" class="hidden">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // ========== CONFIGURATION ==========
+    const SUPABASE_URL = 'https://jomvdvxtifnxymaztnby.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvbXZkdnh0aWZueHltYXp0bmJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwOTI4MDgsImV4cCI6MjA4NDY2ODgwOH0.RI9YthuorKW-EfaY6Tu98NVi-8vhEcRtu2Cl6IhOtCw';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ========== GLOBAL STATE ==========
+    let currentMode = 'gm';
+    let isLoggedIn = false;
+    let folders = [];
+    let images = [];
+    let selectedImageId = null;
+    let currentImage = null;
+    let mapImage = null;
+    let fogData = null;
+
+    // Brush settings
+    let brushMode = 'add';
+    let brushShape = 'circle';
+    let brushSize = 30;
+    let fogOpacity = 0.7;
+
+    // Canvas & zoom
+    let zoom = 1;
+    let panX = 0;
+    let panY = 0;
+    let isPanning = false;
+    let isDrawing = false;
+    let lastX = 0;
+    let lastY = 0;
+
+    // Player state
+    let playerSelectedImageId = null;
+    let playerMapImage = null;
+    let playerZoom = 1;
+    let playerPanX = 0;
+    let playerPanY = 0;
+    let markerMode = false;
+    let markers = [];
+    let nextMarkerNumber = 1;
+
+    // Modal state
+    let renameTarget = null;
+    let moveTarget = null;
+
+    // ========== UTILITIES ==========
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function showLoading() { document.getElementById('loading-overlay').classList.add('active'); }
+    function hideLoading() { document.getElementById('loading-overlay').classList.remove('active'); }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // ========== INIT ==========
+    document.addEventListener('DOMContentLoaded', () => {
+      updateBrushPreview();
+      setupCanvasEvents();
+      setupPlayerCanvasEvents();
+    });
+
+    // ========== LOGIN / NAVIGATION ==========
+    function showGMLogin() {
+      document.getElementById('gm-password-section').classList.add('active');
+      document.getElementById('gm-password').focus();
+    }
+
+    async function loginAsGM() {
+      const password = document.getElementById('gm-password').value;
+      if (!password) { showToast('Veuillez entrer un mot de passe', 'error'); return; }
+      showLoading();
+      try {
+        const { data, error } = await supabase.from('settings').select('gm_password_hash').eq('id', 'main').single();
+        if (error) throw error;
+        if (data.gm_password_hash === password) {
+          isLoggedIn = true;
+          currentMode = 'gm';
+          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('app').classList.add('active');
+          await loadGMData();
+          showToast('Bienvenue, Maître du Jeu !', 'success');
+        } else {
+          showToast('Mot de passe incorrect', 'error');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur de connexion', 'error');
+      }
+      hideLoading();
+    }
+
+    async function showPlayerView() {
+      currentMode = 'player';
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('player-view').style.display = 'flex';
+      await loadPlayerData();
+      setupPlayerRealtime();
+    }
+
+    function backToLogin() {
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app').classList.remove('active');
+      document.getElementById('player-view').style.display = 'none';
+      document.getElementById('gm-password-section').classList.remove('active');
+      document.getElementById('gm-password').value = '';
+      isLoggedIn = false;
+    }
+
+    // ========== DATA LOADING ==========
+    async function loadGMData() {
+      showLoading();
+      try {
+        const { data: foldersData } = await supabase.from('folders').select('*').order('sort_order');
+        folders = foldersData || [];
+        const { data: imagesData } = await supabase.from('images').select('*').order('sort_order');
+        images = imagesData || [];
+        renderFolderList();
+        updateImageCount();
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors du chargement', 'error');
+      }
+      hideLoading();
+    }
+
+    async function loadPlayerData() {
+      showLoading();
+      try {
+        const { data: imagesData } = await supabase.from('images').select('*').eq('is_published', true).order('sort_order');
+        images = imagesData || [];
+        const { data: markersData } = await supabase.from('markers').select('*');
+        markers = markersData || [];
+        if (markers.length > 0) nextMarkerNumber = Math.max(...markers.map(m => m.number)) + 1;
+        renderPlayerImageList();
+        if (images.length > 0) selectPlayerImage(images[0].id);
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors du chargement', 'error');
+      }
+      hideLoading();
+    }
+
+    function setupPlayerRealtime() {
+      supabase.channel('player-images').on('postgres_changes', { event: '*', schema: 'public', table: 'images' }, () => loadPlayerData()).subscribe();
+      supabase.channel('player-markers').on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => loadPlayerMarkers()).subscribe();
+    }
+
+    async function loadPlayerMarkers() {
+      try {
+        const { data } = await supabase.from('markers').select('*');
+        markers = data || [];
+        if (markers.length > 0) nextMarkerNumber = Math.max(...markers.map(m => m.number)) + 1;
+        if (playerSelectedImageId) renderMarkers();
+      } catch (err) { console.error(err); }
+    }
+
+    // ========== FOLDER & IMAGE RENDERING ==========
+    function renderFolderList() {
+      const folderList = document.getElementById('folder-list');
+      const rootImages = document.getElementById('root-images');
+
+      folderList.innerHTML = folders.map(folder => {
+        const folderImages = images.filter(img => img.folder_id === folder.id);
+        return `
+          <div class="folder" data-folder-id="${folder.id}">
+            <div class="folder-header" onclick="toggleFolder('${folder.id}')">
+              <span class="folder-icon">📂</span>
+              <span class="folder-name">${escapeHtml(folder.name)}</span>
+              <span style="color: var(--text-muted); font-size: 0.8rem;">(${folderImages.length})</span>
+              <div class="folder-actions">
+                <button class="btn btn-sm btn-icon" onclick="event.stopPropagation(); renameFolder('${folder.id}')" title="Renommer">✏️</button>
+                <button class="btn btn-sm btn-icon" onclick="event.stopPropagation(); deleteFolder('${folder.id}')" title="Supprimer">🗑️</button>
+              </div>
+            </div>
+            <div class="image-list" id="folder-images-${folder.id}">${folderImages.map(img => renderImageItem(img)).join('')}</div>
+          </div>`;
+      }).join('');
+
+      const rootImagesList = images.filter(img => !img.folder_id);
+      rootImages.innerHTML = rootImagesList.length > 0 ? `<div class="image-list">${rootImagesList.map(img => renderImageItem(img)).join('')}</div>` : '';
+    }
+
+    function renderImageItem(img) {
+      const isSelected = selectedImageId === img.id;
+      return `
+        <div class="image-item ${isSelected ? 'selected' : ''}" data-image-id="${img.id}" onclick="selectImage('${img.id}')">
+          <span class="image-icon">🗺️</span>
+          <span class="image-name">${escapeHtml(img.name)}</span>
+          ${img.is_published ? '<span class="published-badge">Publié</span>' : ''}
+          <div class="image-item-actions">
+            <button class="btn btn-sm btn-icon" onclick="event.stopPropagation(); renameImage('${img.id}')" title="Renommer">✏️</button>
+            <button class="btn btn-sm btn-icon" onclick="event.stopPropagation(); moveImage('${img.id}')" title="Déplacer">📁</button>
+            <button class="btn btn-sm btn-icon" onclick="event.stopPropagation(); deleteImage('${img.id}')" title="Supprimer">🗑️</button>
+          </div>
+        </div>`;
+    }
+
+    function toggleFolder(folderId) {
+      const header = document.querySelector(`[data-folder-id="${folderId}"] .folder-header`);
+      const imageList = document.getElementById(`folder-images-${folderId}`);
+      header.classList.toggle('collapsed');
+      imageList.style.display = header.classList.contains('collapsed') ? 'none' : 'block';
+    }
+
+    function updateImageCount() { document.getElementById('image-count').textContent = `(${images.length}/20)`; }
+
+    // ========== IMAGE MANAGEMENT ==========
+    function importImage() {
+      if (images.length >= 20) { showToast('Limite de 20 images atteinte', 'error'); return; }
+      document.getElementById('import-image-input').click();
+    }
+
+    async function handleImageImport(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (file.size > 15 * 1024 * 1024) { showToast('Image trop volumineuse (max 15 Mo)', 'error'); event.target.value = ''; return; }
+      if (!['image/jpeg', 'image/png'].includes(file.type)) { showToast('Format non supporté (JPG ou PNG)', 'error'); event.target.value = ''; return; }
+
+      showLoading();
+      try {
+        const ext = file.name.split('.').pop();
+        const filename = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('maps').upload(filename, file);
+        if (uploadError) throw uploadError;
+
+        const { data: urlData } = supabase.storage.from('maps').getPublicUrl(filename);
+        const { data: imageData, error: imageError } = await supabase.from('images').insert({
+          name: file.name.replace(/\.[^/.]+$/, ''),
+          image_path: urlData.publicUrl,
+          fog_data: null,
+          is_published: false,
+          sort_order: images.length
+        }).select().single();
+        if (imageError) throw imageError;
+
+        images.push(imageData);
+        renderFolderList();
+        updateImageCount();
+        selectImage(imageData.id);
+        showToast('Image importée avec succès', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de l\'import', 'error');
+      }
+      event.target.value = '';
+      hideLoading();
+    }
+
+    async function selectImage(imageId) {
+      selectedImageId = imageId;
+      currentImage = images.find(img => img.id === imageId);
+      if (!currentImage) return;
+      renderFolderList();
+      document.getElementById('empty-state').style.display = 'none';
+      document.getElementById('canvas-wrapper').style.display = 'block';
+      showLoading();
+
+      mapImage = new Image();
+      mapImage.crossOrigin = 'anonymous';
+      mapImage.onload = () => { initializeCanvases(); hideLoading(); };
+      mapImage.onerror = () => { showToast('Erreur lors du chargement de l\'image', 'error'); hideLoading(); };
+      mapImage.src = currentImage.image_path;
+    }
+
+    function initializeCanvases() {
+      const wrapper = document.getElementById('canvas-wrapper');
+      const mapCanvas = document.getElementById('map-canvas');
+      const fogCanvas = document.getElementById('fog-canvas');
+      const width = mapImage.naturalWidth;
+      const height = mapImage.naturalHeight;
+
+      mapCanvas.width = width;
+      mapCanvas.height = height;
+      fogCanvas.width = width;
+      fogCanvas.height = height;
+      wrapper.style.width = width + 'px';
+      wrapper.style.height = height + 'px';
+
+      const mapCtx = mapCanvas.getContext('2d');
+      mapCtx.drawImage(mapImage, 0, 0);
+
+      if (currentImage.fog_data) {
+        try {
+          const binary = atob(currentImage.fog_data);
+          fogData = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) fogData[i] = binary.charCodeAt(i);
+        } catch (e) {
+          console.error('Error decoding fog data:', e);
+          fogData = new Uint8Array(width * height);
+        }
+      } else {
+        fogData = new Uint8Array(width * height);
+      }
+      renderFog();
+      resetZoom();
+    }
+
+    function renderFog() {
+      const fogCanvas = document.getElementById('fog-canvas');
+      const ctx = fogCanvas.getContext('2d');
+      const width = fogCanvas.width;
+      const height = fogCanvas.height;
+      const imageData = ctx.createImageData(width, height);
+      const data = imageData.data;
+      const r = 26, g = 26, b = 46;
+
+      for (let i = 0; i < fogData.length; i++) {
+        const idx = i * 4;
+        data[idx] = r;
+        data[idx + 1] = g;
+        data[idx + 2] = b;
+        data[idx + 3] = Math.round(fogData[i] * fogOpacity);
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    async function deleteImage(imageId) {
+      if (!confirm('Supprimer cette image ?')) return;
+      showLoading();
+      try {
+        const img = images.find(i => i.id === imageId);
+        if (!img) throw new Error('Image not found');
+        const filename = img.image_path.split('/').pop();
+        await supabase.storage.from('maps').remove([filename]);
+        await supabase.from('markers').delete().eq('image_id', imageId);
+        await supabase.from('images').delete().eq('id', imageId);
+        images = images.filter(i => i.id !== imageId);
+        if (selectedImageId === imageId) {
+          selectedImageId = null;
+          currentImage = null;
+          document.getElementById('empty-state').style.display = 'block';
+          document.getElementById('canvas-wrapper').style.display = 'none';
+        }
+        renderFolderList();
+        updateImageCount();
+        showToast('Image supprimée', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de la suppression', 'error');
+      }
+      hideLoading();
+    }
+
+    // ========== FOLDER MANAGEMENT ==========
+    async function createFolder() {
+      const name = prompt('Nom du dossier :');
+      if (!name) return;
+      showLoading();
+      try {
+        const { data, error } = await supabase.from('folders').insert({ name: name.trim(), sort_order: folders.length }).select().single();
+        if (error) throw error;
+        folders.push(data);
+        renderFolderList();
+        showToast('Dossier créé', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de la création', 'error');
+      }
+      hideLoading();
+    }
+
+    function renameFolder(folderId) {
+      renameTarget = { type: 'folder', id: folderId };
+      const folder = folders.find(f => f.id === folderId);
+      document.getElementById('rename-input').value = folder.name;
+      document.getElementById('rename-modal').classList.add('active');
+      document.getElementById('rename-input').focus();
+    }
+
+    async function deleteFolder(folderId) {
+      if (!confirm('Supprimer ce dossier ? Les images seront déplacées à la racine.')) return;
+      showLoading();
+      try {
+        await supabase.from('images').update({ folder_id: null }).eq('folder_id', folderId);
+        images.forEach(img => { if (img.folder_id === folderId) img.folder_id = null; });
+        await supabase.from('folders').delete().eq('id', folderId);
+        folders = folders.filter(f => f.id !== folderId);
+        renderFolderList();
+        showToast('Dossier supprimé', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de la suppression', 'error');
+      }
+      hideLoading();
+    }
+
+    // ========== RENAME / MOVE MODALS ==========
+    function renameImage(imageId) {
+      renameTarget = { type: 'image', id: imageId };
+      const img = images.find(i => i.id === imageId);
+      document.getElementById('rename-input').value = img.name;
+      document.getElementById('rename-modal').classList.add('active');
+      document.getElementById('rename-input').focus();
+    }
+
+    function closeRenameModal() { document.getElementById('rename-modal').classList.remove('active'); renameTarget = null; }
+
+    async function confirmRename() {
+      const newName = document.getElementById('rename-input').value.trim();
+      if (!newName || !renameTarget) return;
+      showLoading();
+      try {
+        const table = renameTarget.type === 'folder' ? 'folders' : 'images';
+        await supabase.from(table).update({ name: newName }).eq('id', renameTarget.id);
+        if (renameTarget.type === 'folder') {
+          const folder = folders.find(f => f.id === renameTarget.id);
+          if (folder) folder.name = newName;
+        } else {
+          const img = images.find(i => i.id === renameTarget.id);
+          if (img) img.name = newName;
+        }
+        renderFolderList();
+        closeRenameModal();
+        showToast('Renommé avec succès', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors du renommage', 'error');
+      }
+      hideLoading();
+    }
+
+    function moveImage(imageId) {
+      moveTarget = imageId;
+      const select = document.getElementById('move-folder-select');
+      select.innerHTML = '<option value="">-- Aucun dossier (racine) --</option>' + folders.map(f => `<option value="${f.id}">${escapeHtml(f.name)}</option>`).join('');
+      const img = images.find(i => i.id === imageId);
+      if (img && img.folder_id) select.value = img.folder_id;
+      document.getElementById('move-modal').classList.add('active');
+    }
+
+    function closeMoveModal() { document.getElementById('move-modal').classList.remove('active'); moveTarget = null; }
+
+    async function confirmMove() {
+      if (!moveTarget) return;
+      const folderId = document.getElementById('move-folder-select').value || null;
+      showLoading();
+      try {
+        await supabase.from('images').update({ folder_id: folderId }).eq('id', moveTarget);
+        const img = images.find(i => i.id === moveTarget);
+        if (img) img.folder_id = folderId;
+        renderFolderList();
+        closeMoveModal();
+        showToast('Image déplacée', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors du déplacement', 'error');
+      }
+      hideLoading();
+    }
+
+    // ========== BRUSH TOOLS ==========
+    function setBrushMode(mode) {
+      brushMode = mode;
+      document.getElementById('brush-add').classList.toggle('btn-primary', mode === 'add');
+      document.getElementById('brush-remove').classList.toggle('btn-primary', mode === 'remove');
+    }
+
+    function setBrushShape(shape) {
+      brushShape = shape;
+      document.getElementById('shape-circle').classList.toggle('btn-primary', shape === 'circle');
+      document.getElementById('shape-square').classList.toggle('btn-primary', shape === 'square');
+      updateBrushPreview();
+    }
+
+    function updateBrushSize(size) {
+      brushSize = parseInt(size);
+      document.getElementById('brush-size-display').textContent = size + 'px';
+      updateBrushPreview();
+    }
+
+    function updateBrushPreview() {
+      const preview = document.getElementById('brush-preview-inner');
+      const displaySize = Math.min(30, brushSize);
+      preview.style.width = displaySize + 'px';
+      preview.style.height = displaySize + 'px';
+      preview.style.borderRadius = brushShape === 'circle' ? '50%' : '0';
+    }
+
+    function updateFogOpacity(value) {
+      fogOpacity = parseInt(value) / 100;
+      document.getElementById('opacity-display').textContent = value + '%';
+      if (fogData) renderFog();
+    }
+
+    function fillAllFog() {
+      if (!fogData) return;
+      fogData.fill(255);
+      renderFog();
+      showToast('Brouillard appliqué sur toute la carte', 'success');
+    }
+
+    function clearAllFog() {
+      if (!fogData) return;
+      fogData.fill(0);
+      renderFog();
+      showToast('Tout le brouillard a été retiré', 'success');
+    }
+
+    // ========== CANVAS EVENTS ==========
+    function setupCanvasEvents() {
+      const container = document.getElementById('canvas-container');
+      const wrapper = document.getElementById('canvas-wrapper');
+
+      wrapper.addEventListener('mousedown', handleDrawStart);
+      wrapper.addEventListener('mousemove', handleDrawMove);
+      wrapper.addEventListener('mouseup', handleDrawEnd);
+      wrapper.addEventListener('mouseleave', handleDrawEnd);
+      wrapper.addEventListener('touchstart', handleTouchStart, { passive: false });
+      wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
+      wrapper.addEventListener('touchend', handleDrawEnd);
+      container.addEventListener('wheel', handleWheel, { passive: false });
+
+      container.addEventListener('mousedown', (e) => {
+        if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
+          isPanning = true;
+          lastX = e.clientX;
+          lastY = e.clientY;
+          e.preventDefault();
+        }
+      });
+      container.addEventListener('mousemove', (e) => {
+        if (isPanning) {
+          panX += e.clientX - lastX;
+          panY += e.clientY - lastY;
+          lastX = e.clientX;
+          lastY = e.clientY;
+          updateCanvasTransform();
+        }
+      });
+      container.addEventListener('mouseup', () => { isPanning = false; });
+    }
+
+    function handleDrawStart(e) {
+      if (isPanning || !fogData) return;
+      isDrawing = true;
+      const pos = getCanvasPosition(e);
+      draw(pos.x, pos.y);
+    }
+
+    function handleDrawMove(e) {
+      if (!isDrawing || !fogData) return;
+      const pos = getCanvasPosition(e);
+      draw(pos.x, pos.y);
+    }
+
+    function handleDrawEnd() { isDrawing = false; }
+
+    function handleTouchStart(e) {
+      if (e.touches.length === 1 && !isPanning) {
+        e.preventDefault();
+        handleDrawStart(e.touches[0]);
+      } else if (e.touches.length === 2) {
+        isPanning = true;
+      }
+    }
+
+    function handleTouchMove(e) {
+      if (e.touches.length === 1 && isDrawing) {
+        e.preventDefault();
+        handleDrawMove(e.touches[0]);
+      }
+    }
+
+    function getCanvasPosition(e) {
+      const wrapper = document.getElementById('canvas-wrapper');
+      const rect = wrapper.getBoundingClientRect();
+      return { x: (e.clientX - rect.left) / zoom, y: (e.clientY - rect.top) / zoom };
+    }
+
+    function draw(x, y) {
+      const fogCanvas = document.getElementById('fog-canvas');
+      const width = fogCanvas.width;
+      const height = fogCanvas.height;
+      const value = brushMode === 'add' ? 255 : 0;
+      const radius = brushSize / 2;
+
+      const startX = Math.max(0, Math.floor(x - radius));
+      const endX = Math.min(width - 1, Math.ceil(x + radius));
+      const startY = Math.max(0, Math.floor(y - radius));
+      const endY = Math.min(height - 1, Math.ceil(y + radius));
+
+      for (let py = startY; py <= endY; py++) {
+        for (let px = startX; px <= endX; px++) {
+          const inBrush = brushShape === 'circle'
+            ? Math.sqrt((px - x) ** 2 + (py - y) ** 2) <= radius
+            : Math.abs(px - x) <= radius && Math.abs(py - y) <= radius;
+          if (inBrush) fogData[py * width + px] = value;
+        }
+      }
+      renderFog();
+    }
+
+    // ========== ZOOM & PAN ==========
+    function handleWheel(e) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      zoom = Math.max(0.1, Math.min(5, zoom + delta));
+      updateCanvasTransform();
+      document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function zoomIn() {
+      zoom = Math.min(5, zoom + 0.25);
+      updateCanvasTransform();
+      document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function zoomOut() {
+      zoom = Math.max(0.1, zoom - 0.25);
+      updateCanvasTransform();
+      document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function resetZoom() {
+      const container = document.getElementById('canvas-container');
+      if (!mapImage) return;
+      const containerRect = container.getBoundingClientRect();
+      const scaleX = containerRect.width / mapImage.naturalWidth;
+      const scaleY = containerRect.height / mapImage.naturalHeight;
+      zoom = Math.min(scaleX, scaleY) * 0.9;
+      panX = 0;
+      panY = 0;
+      updateCanvasTransform();
+      document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
+    }
+
+    function updateCanvasTransform() {
+      const wrapper = document.getElementById('canvas-wrapper');
+      wrapper.style.transform = `translate(-50%, -50%) translate(${panX}px, ${panY}px) scale(${zoom})`;
+    }
+
+    // ========== PREVIEW & PUBLISH ==========
+    function showPreview() {
+      if (!currentImage || !fogData) { showToast('Sélectionnez une image d\'abord', 'error'); return; }
+      const previewCanvas = document.createElement('canvas');
+      previewCanvas.width = mapImage.naturalWidth;
+      previewCanvas.height = mapImage.naturalHeight;
+      const ctx = previewCanvas.getContext('2d');
+      ctx.drawImage(mapImage, 0, 0);
+
+      const imageData = ctx.createImageData(previewCanvas.width, previewCanvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < fogData.length; i++) {
+        const idx = i * 4;
+        data[idx] = 26; data[idx + 1] = 26; data[idx + 2] = 46; data[idx + 3] = fogData[i];
+      }
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = previewCanvas.width;
+      tempCanvas.height = previewCanvas.height;
+      tempCanvas.getContext('2d').putImageData(imageData, 0, 0);
+      ctx.drawImage(tempCanvas, 0, 0);
+
+      document.getElementById('preview-image').src = previewCanvas.toDataURL('image/png');
+      document.getElementById('preview-modal').classList.add('active');
+    }
+
+    function closePreview() { document.getElementById('preview-modal').classList.remove('active'); }
+
+    async function confirmPublish() { closePreview(); await publishFog(); }
+
+    async function publishFog() {
+      if (!currentImage || !fogData) { showToast('Sélectionnez une image d\'abord', 'error'); return; }
+      showLoading();
+      try {
+        let binary = '';
+        for (let i = 0; i < fogData.length; i++) binary += String.fromCharCode(fogData[i]);
+        const fogDataBase64 = btoa(binary);
+
+        await supabase.from('images').update({
+          fog_data: fogDataBase64,
+          published_fog_data: fogDataBase64,
+          is_published: true
+        }).eq('id', currentImage.id);
+
+        currentImage.fog_data = fogDataBase64;
+        currentImage.published_fog_data = fogDataBase64;
+        currentImage.is_published = true;
+        renderFolderList();
+        showToast('Carte publiée aux joueurs !', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de la publication', 'error');
+      }
+      hideLoading();
+    }
+
+    // ========== SETTINGS ==========
+    function showSettings() { document.getElementById('settings-modal').classList.add('active'); }
+    function closeSettings() {
+      document.getElementById('settings-modal').classList.remove('active');
+      document.getElementById('new-password').value = '';
+      document.getElementById('confirm-password').value = '';
+    }
+
+    async function changePassword() {
+      const newPass = document.getElementById('new-password').value;
+      const confirmPass = document.getElementById('confirm-password').value;
+      if (!newPass || newPass.length < 4) { showToast('Mot de passe trop court (min 4 caractères)', 'error'); return; }
+      if (newPass !== confirmPass) { showToast('Les mots de passe ne correspondent pas', 'error'); return; }
+      showLoading();
+      try {
+        await supabase.from('settings').update({ gm_password_hash: newPass }).eq('id', 'main');
+        closeSettings();
+        showToast('Mot de passe modifié', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors du changement', 'error');
+      }
+      hideLoading();
+    }
+
+    // ========== BACKUP / RESTORE ==========
+    async function exportBackup() {
+      showLoading();
+      try {
+        const backup = {
+          version: 1,
+          exportDate: new Date().toISOString(),
+          folders: folders,
+          images: await Promise.all(images.map(async (img) => {
+            const response = await fetch(img.image_path);
+            const blob = await response.blob();
+            const base64 = await new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result);
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+            return { ...img, image_base64: base64 };
+          })),
+          markers: markers
+        };
+        const json = JSON.stringify(backup, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `fog-of-war-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Sauvegarde téléchargée', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de la sauvegarde', 'error');
+      }
+      hideLoading();
+    }
+
+    async function importBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!confirm('Cela remplacera toutes vos données actuelles. Continuer ?')) { event.target.value = ''; return; }
+      showLoading();
+      try {
+        const text = await file.text();
+        const backup = JSON.parse(text);
+        if (!backup.version || !backup.images) throw new Error('Fichier invalide');
+
+        // Clear existing data
+        await supabase.from('markers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('images').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await supabase.from('folders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        const { data: files } = await supabase.storage.from('maps').list();
+        if (files && files.length > 0) await supabase.storage.from('maps').remove(files.map(f => f.name));
+
+        // Restore folders
+        if (backup.folders && backup.folders.length > 0) await supabase.from('folders').insert(backup.folders);
+
+        // Restore images
+        for (const img of backup.images) {
+          const base64Data = img.image_base64.split(',')[1];
+          const mimeType = img.image_base64.split(';')[0].split(':')[1];
+          const ext = mimeType.split('/')[1];
+          const filename = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+          const byteCharacters = atob(base64Data);
+          const byteArray = new Uint8Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
+          const blob = new Blob([byteArray], { type: mimeType });
+          await supabase.storage.from('maps').upload(filename, blob);
+          const { data: urlData } = supabase.storage.from('maps').getPublicUrl(filename);
+          await supabase.from('images').insert({
+            id: img.id, name: img.name, folder_id: img.folder_id, image_path: urlData.publicUrl,
+            fog_data: img.fog_data, published_fog_data: img.published_fog_data,
+            is_published: img.is_published, sort_order: img.sort_order
+          });
+        }
+
+        // Restore markers
+        if (backup.markers && backup.markers.length > 0) await supabase.from('markers').insert(backup.markers);
+
+        await loadGMData();
+        showToast('Sauvegarde restaurée', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de la restauration', 'error');
+      }
+      event.target.value = '';
+      hideLoading();
+    }
+
+    // ========== PLAYER VIEW ==========
+    function renderPlayerImageList() {
+      const list = document.getElementById('player-image-list');
+      if (images.length === 0) {
+        list.innerHTML = '<p style="padding: 1rem; color: var(--text-muted);">Aucune carte publiée</p>';
+        return;
+      }
+      list.innerHTML = images.map(img => `
+        <div class="player-image-item ${playerSelectedImageId === img.id ? 'selected' : ''}" onclick="selectPlayerImage('${img.id}')">
+          🗺️ ${escapeHtml(img.name)}
+        </div>
+      `).join('');
+    }
+
+    async function selectPlayerImage(imageId) {
+      playerSelectedImageId = imageId;
+      const img = images.find(i => i.id === imageId);
+      if (!img) return;
+      renderPlayerImageList();
+      document.getElementById('player-empty-state').style.display = 'none';
+      document.getElementById('player-canvas-wrapper').style.display = 'block';
+      showLoading();
+
+      playerMapImage = new Image();
+      playerMapImage.crossOrigin = 'anonymous';
+      playerMapImage.onload = () => { initializePlayerCanvases(img); hideLoading(); };
+      playerMapImage.onerror = () => { showToast('Erreur lors du chargement', 'error'); hideLoading(); };
+      playerMapImage.src = img.image_path;
+    }
+
+    function initializePlayerCanvases(img) {
+      const wrapper = document.getElementById('player-canvas-wrapper');
+      const mapCanvas = document.getElementById('player-map-canvas');
+      const fogCanvas = document.getElementById('player-fog-canvas');
+      const width = playerMapImage.naturalWidth;
+      const height = playerMapImage.naturalHeight;
+
+      mapCanvas.width = width;
+      mapCanvas.height = height;
+      fogCanvas.width = width;
+      fogCanvas.height = height;
+      wrapper.style.width = width + 'px';
+      wrapper.style.height = height + 'px';
+
+      mapCanvas.getContext('2d').drawImage(playerMapImage, 0, 0);
+
+      if (img.published_fog_data) {
+        const fogCtx = fogCanvas.getContext('2d');
+        const binary = atob(img.published_fog_data);
+        const fogDataPlayer = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) fogDataPlayer[i] = binary.charCodeAt(i);
+        const imageData = fogCtx.createImageData(width, height);
+        const data = imageData.data;
+        for (let i = 0; i < fogDataPlayer.length; i++) {
+          const idx = i * 4;
+          data[idx] = 26; data[idx + 1] = 26; data[idx + 2] = 46; data[idx + 3] = fogDataPlayer[i];
+        }
+        fogCtx.putImageData(imageData, 0, 0);
+      }
+      renderMarkers();
+      playerResetZoom();
+    }
+
+    function setupPlayerCanvasEvents() {
+      const container = document.getElementById('player-canvas-container');
+      const wrapper = document.getElementById('player-canvas-wrapper');
+      wrapper.addEventListener('click', handlePlayerClick);
+      container.addEventListener('wheel', handlePlayerWheel, { passive: false });
+
+      let isPan = false, lx = 0, ly = 0;
+      container.addEventListener('mousedown', (e) => {
+        if (!markerMode && e.button === 0) { isPan = true; lx = e.clientX; ly = e.clientY; }
+      });
+      container.addEventListener('mousemove', (e) => {
+        if (isPan) {
+          playerPanX += e.clientX - lx;
+          playerPanY += e.clientY - ly;
+          lx = e.clientX; ly = e.clientY;
+          updatePlayerCanvasTransform();
+        }
+      });
+      container.addEventListener('mouseup', () => isPan = false);
+      container.addEventListener('mouseleave', () => isPan = false);
+    }
+
+    function handlePlayerClick(e) {
+      if (!markerMode || !playerSelectedImageId) return;
+      const wrapper = document.getElementById('player-canvas-wrapper');
+      const rect = wrapper.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / playerZoom;
+      const y = (e.clientY - rect.top) / playerZoom;
+      addMarker(x / playerMapImage.naturalWidth * 100, y / playerMapImage.naturalHeight * 100);
+    }
+
+    async function addMarker(xPercent, yPercent) {
+      try {
+        const { data, error } = await supabase.from('markers').insert({
+          image_id: playerSelectedImageId, number: nextMarkerNumber, x_percent: xPercent, y_percent: yPercent
+        }).select().single();
+        if (error) throw error;
+        markers.push(data);
+        nextMarkerNumber++;
+        renderMarkers();
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur lors de l\'ajout du marqueur', 'error');
+      }
+    }
+
+    function renderMarkers() {
+      const container = document.getElementById('markers-container');
+      const imageMarkers = markers.filter(m => m.image_id === playerSelectedImageId);
+      container.innerHTML = imageMarkers.map(m => `
+        <div class="marker" style="left: ${m.x_percent}%; top: ${m.y_percent}%;" onclick="event.stopPropagation(); deleteMarker('${m.id}')" title="Cliquez pour supprimer">${m.number}</div>
+      `).join('');
+    }
+
+    async function deleteMarker(markerId) {
+      if (!confirm('Supprimer ce marqueur ?')) return;
+      try {
+        await supabase.from('markers').delete().eq('id', markerId);
+        markers = markers.filter(m => m.id !== markerId);
+        renderMarkers();
+      } catch (err) {
+        console.error(err);
+        showToast('Erreur', 'error');
+      }
+    }
+
+    function toggleMarkerMode() {
+      markerMode = !markerMode;
+      document.getElementById('marker-mode-btn').classList.toggle('btn-primary', markerMode);
+      document.getElementById('player-canvas-wrapper').style.cursor = markerMode ? 'crosshair' : 'grab';
+    }
+
+    function handlePlayerWheel(e) {
+      e.preventDefault();
+      playerZoom = Math.max(0.1, Math.min(5, playerZoom + (e.deltaY > 0 ? -0.1 : 0.1)));
+      updatePlayerCanvasTransform();
+      document.getElementById('player-zoom-level').textContent = Math.round(playerZoom * 100) + '%';
+    }
+
+    function playerZoomIn() {
+      playerZoom = Math.min(5, playerZoom + 0.25);
+      updatePlayerCanvasTransform();
+      document.getElementById('player-zoom-level').textContent = Math.round(playerZoom * 100) + '%';
+    }
+
+    function playerZoomOut() {
+      playerZoom = Math.max(0.1, playerZoom - 0.25);
+      updatePlayerCanvasTransform();
+      document.getElementById('player-zoom-level').textContent = Math.round(playerZoom * 100) + '%';
+    }
+
+    function playerResetZoom() {
+      const container = document.getElementById('player-canvas-container');
+      if (!playerMapImage) return;
+      const containerRect = container.getBoundingClientRect();
+      playerZoom = Math.min(containerRect.width / playerMapImage.naturalWidth, containerRect.height / playerMapImage.naturalHeight) * 0.9;
+      playerPanX = 0;
+      playerPanY = 0;
+      updatePlayerCanvasTransform();
+      document.getElementById('player-zoom-level').textContent = Math.round(playerZoom * 100) + '%';
+    }
+
+    function updatePlayerCanvasTransform() {
+      const wrapper = document.getElementById('player-canvas-wrapper');
+      wrapper.style.transform = `translate(-50%, -50%) translate(${playerPanX}px, ${playerPanY}px) scale(${playerZoom})`;
+    }
+
+    // ========== EXPORT (PLAYER) ==========
+    function showExportModal() {
+      if (!playerSelectedImageId) { showToast('Sélectionnez une carte d\'abord', 'error'); return; }
+      document.getElementById('export-modal').classList.add('active');
+    }
+
+    function closeExportModal() { document.getElementById('export-modal').classList.remove('active'); }
+
+    function confirmExport() {
+      const withMarkers = document.getElementById('export-with-markers').checked;
+      const canvas = document.createElement('canvas');
+      canvas.width = playerMapImage.naturalWidth;
+      canvas.height = playerMapImage.naturalHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Draw map
+      ctx.drawImage(document.getElementById('player-map-canvas'), 0, 0);
+      // Draw fog
+      ctx.drawImage(document.getElementById('player-fog-canvas'), 0, 0);
+
+      // Draw markers if needed
+      if (withMarkers) {
+        const imageMarkers = markers.filter(m => m.image_id === playerSelectedImageId);
+        ctx.fillStyle = '#c9a227';
+        ctx.strokeStyle = '#0a0a0c';
+        ctx.lineWidth = 2;
+        ctx.font = 'bold 14px Cinzel, serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        imageMarkers.forEach(m => {
+          const x = m.x_percent / 100 * canvas.width;
+          const y = m.y_percent / 100 * canvas.height;
+          ctx.beginPath();
+          ctx.arc(x, y, 14, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = '#0a0a0c';
+          ctx.fillText(m.number.toString(), x, y);
+          ctx.fillStyle = '#c9a227';
+        });
+      }
+
+      const link = document.createElement('a');
+      link.download = `carte-${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      closeExportModal();
+      showToast('Image exportée', 'success');
+    }
+  </script>
+</body>
+</html>
