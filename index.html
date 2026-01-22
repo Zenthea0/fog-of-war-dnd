@@ -530,7 +530,7 @@
     // ========== CONFIGURATION ==========
     const SUPABASE_URL = 'https://jomvdvxtifnxymaztnby.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpvbXZkdnh0aWZueHltYXp0bmJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwOTI4MDgsImV4cCI6MjA4NDY2ODgwOH0.RI9YthuorKW-EfaY6Tu98NVi-8vhEcRtu2Cl6IhOtCw';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // ========== GLOBAL STATE ==========
     let currentMode = 'gm';
@@ -608,7 +608,7 @@
       if (!password) { showToast('Veuillez entrer un mot de passe', 'error'); return; }
       showLoading();
       try {
-        const { data, error } = await supabase.from('settings').select('gm_password_hash').eq('id', 'main').single();
+        const { data, error } = await db.from('settings').select('gm_password_hash').eq('id', 'main').single();
         if (error) throw error;
         if (data.gm_password_hash === password) {
           isLoggedIn = true;
@@ -648,9 +648,9 @@
     async function loadGMData() {
       showLoading();
       try {
-        const { data: foldersData } = await supabase.from('folders').select('*').order('sort_order');
+        const { data: foldersData } = await db.from('folders').select('*').order('sort_order');
         folders = foldersData || [];
-        const { data: imagesData } = await supabase.from('images').select('*').order('sort_order');
+        const { data: imagesData } = await db.from('images').select('*').order('sort_order');
         images = imagesData || [];
         renderFolderList();
         updateImageCount();
@@ -664,9 +664,9 @@
     async function loadPlayerData() {
       showLoading();
       try {
-        const { data: imagesData } = await supabase.from('images').select('*').eq('is_published', true).order('sort_order');
+        const { data: imagesData } = await db.from('images').select('*').eq('is_published', true).order('sort_order');
         images = imagesData || [];
-        const { data: markersData } = await supabase.from('markers').select('*');
+        const { data: markersData } = await db.from('markers').select('*');
         markers = markersData || [];
         if (markers.length > 0) nextMarkerNumber = Math.max(...markers.map(m => m.number)) + 1;
         renderPlayerImageList();
@@ -679,13 +679,13 @@
     }
 
     function setupPlayerRealtime() {
-      supabase.channel('player-images').on('postgres_changes', { event: '*', schema: 'public', table: 'images' }, () => loadPlayerData()).subscribe();
-      supabase.channel('player-markers').on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => loadPlayerMarkers()).subscribe();
+      db.channel('player-images').on('postgres_changes', { event: '*', schema: 'public', table: 'images' }, () => loadPlayerData()).subscribe();
+      db.channel('player-markers').on('postgres_changes', { event: '*', schema: 'public', table: 'markers' }, () => loadPlayerMarkers()).subscribe();
     }
 
     async function loadPlayerMarkers() {
       try {
-        const { data } = await supabase.from('markers').select('*');
+        const { data } = await db.from('markers').select('*');
         markers = data || [];
         if (markers.length > 0) nextMarkerNumber = Math.max(...markers.map(m => m.number)) + 1;
         if (playerSelectedImageId) renderMarkers();
@@ -758,11 +758,11 @@
       try {
         const ext = file.name.split('.').pop();
         const filename = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from('maps').upload(filename, file);
+        const { error: uploadError } = await db.storage.from('maps').upload(filename, file);
         if (uploadError) throw uploadError;
 
-        const { data: urlData } = supabase.storage.from('maps').getPublicUrl(filename);
-        const { data: imageData, error: imageError } = await supabase.from('images').insert({
+        const { data: urlData } = db.storage.from('maps').getPublicUrl(filename);
+        const { data: imageData, error: imageError } = await db.from('images').insert({
           name: file.name.replace(/\.[^/.]+$/, ''),
           image_path: urlData.publicUrl,
           fog_data: null,
@@ -859,9 +859,9 @@
         const img = images.find(i => i.id === imageId);
         if (!img) throw new Error('Image not found');
         const filename = img.image_path.split('/').pop();
-        await supabase.storage.from('maps').remove([filename]);
-        await supabase.from('markers').delete().eq('image_id', imageId);
-        await supabase.from('images').delete().eq('id', imageId);
+        await db.storage.from('maps').remove([filename]);
+        await db.from('markers').delete().eq('image_id', imageId);
+        await db.from('images').delete().eq('id', imageId);
         images = images.filter(i => i.id !== imageId);
         if (selectedImageId === imageId) {
           selectedImageId = null;
@@ -885,7 +885,7 @@
       if (!name) return;
       showLoading();
       try {
-        const { data, error } = await supabase.from('folders').insert({ name: name.trim(), sort_order: folders.length }).select().single();
+        const { data, error } = await db.from('folders').insert({ name: name.trim(), sort_order: folders.length }).select().single();
         if (error) throw error;
         folders.push(data);
         renderFolderList();
@@ -909,9 +909,9 @@
       if (!confirm('Supprimer ce dossier ? Les images seront déplacées à la racine.')) return;
       showLoading();
       try {
-        await supabase.from('images').update({ folder_id: null }).eq('folder_id', folderId);
+        await db.from('images').update({ folder_id: null }).eq('folder_id', folderId);
         images.forEach(img => { if (img.folder_id === folderId) img.folder_id = null; });
-        await supabase.from('folders').delete().eq('id', folderId);
+        await db.from('folders').delete().eq('id', folderId);
         folders = folders.filter(f => f.id !== folderId);
         renderFolderList();
         showToast('Dossier supprimé', 'success');
@@ -939,7 +939,7 @@
       showLoading();
       try {
         const table = renameTarget.type === 'folder' ? 'folders' : 'images';
-        await supabase.from(table).update({ name: newName }).eq('id', renameTarget.id);
+        await db.from(table).update({ name: newName }).eq('id', renameTarget.id);
         if (renameTarget.type === 'folder') {
           const folder = folders.find(f => f.id === renameTarget.id);
           if (folder) folder.name = newName;
@@ -973,7 +973,7 @@
       const folderId = document.getElementById('move-folder-select').value || null;
       showLoading();
       try {
-        await supabase.from('images').update({ folder_id: folderId }).eq('id', moveTarget);
+        await db.from('images').update({ folder_id: folderId }).eq('id', moveTarget);
         const img = images.find(i => i.id === moveTarget);
         if (img) img.folder_id = folderId;
         renderFolderList();
@@ -1204,7 +1204,7 @@
         for (let i = 0; i < fogData.length; i++) binary += String.fromCharCode(fogData[i]);
         const fogDataBase64 = btoa(binary);
 
-        await supabase.from('images').update({
+        await db.from('images').update({
           fog_data: fogDataBase64,
           published_fog_data: fogDataBase64,
           is_published: true
@@ -1237,7 +1237,7 @@
       if (newPass !== confirmPass) { showToast('Les mots de passe ne correspondent pas', 'error'); return; }
       showLoading();
       try {
-        await supabase.from('settings').update({ gm_password_hash: newPass }).eq('id', 'main');
+        await db.from('settings').update({ gm_password_hash: newPass }).eq('id', 'main');
         closeSettings();
         showToast('Mot de passe modifié', 'success');
       } catch (err) {
@@ -1295,14 +1295,14 @@
         if (!backup.version || !backup.images) throw new Error('Fichier invalide');
 
         // Clear existing data
-        await supabase.from('markers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await supabase.from('images').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await supabase.from('folders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        const { data: files } = await supabase.storage.from('maps').list();
-        if (files && files.length > 0) await supabase.storage.from('maps').remove(files.map(f => f.name));
+        await db.from('markers').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await db.from('images').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        await db.from('folders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        const { data: files } = await db.storage.from('maps').list();
+        if (files && files.length > 0) await db.storage.from('maps').remove(files.map(f => f.name));
 
         // Restore folders
-        if (backup.folders && backup.folders.length > 0) await supabase.from('folders').insert(backup.folders);
+        if (backup.folders && backup.folders.length > 0) await db.from('folders').insert(backup.folders);
 
         // Restore images
         for (const img of backup.images) {
@@ -1314,9 +1314,9 @@
           const byteArray = new Uint8Array(byteCharacters.length);
           for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
           const blob = new Blob([byteArray], { type: mimeType });
-          await supabase.storage.from('maps').upload(filename, blob);
-          const { data: urlData } = supabase.storage.from('maps').getPublicUrl(filename);
-          await supabase.from('images').insert({
+          await db.storage.from('maps').upload(filename, blob);
+          const { data: urlData } = db.storage.from('maps').getPublicUrl(filename);
+          await db.from('images').insert({
             id: img.id, name: img.name, folder_id: img.folder_id, image_path: urlData.publicUrl,
             fog_data: img.fog_data, published_fog_data: img.published_fog_data,
             is_published: img.is_published, sort_order: img.sort_order
@@ -1324,7 +1324,7 @@
         }
 
         // Restore markers
-        if (backup.markers && backup.markers.length > 0) await supabase.from('markers').insert(backup.markers);
+        if (backup.markers && backup.markers.length > 0) await db.from('markers').insert(backup.markers);
 
         await loadGMData();
         showToast('Sauvegarde restaurée', 'success');
@@ -1432,7 +1432,7 @@
 
     async function addMarker(xPercent, yPercent) {
       try {
-        const { data, error } = await supabase.from('markers').insert({
+        const { data, error } = await db.from('markers').insert({
           image_id: playerSelectedImageId, number: nextMarkerNumber, x_percent: xPercent, y_percent: yPercent
         }).select().single();
         if (error) throw error;
@@ -1456,7 +1456,7 @@
     async function deleteMarker(markerId) {
       if (!confirm('Supprimer ce marqueur ?')) return;
       try {
-        await supabase.from('markers').delete().eq('id', markerId);
+        await db.from('markers').delete().eq('id', markerId);
         markers = markers.filter(m => m.id !== markerId);
         renderMarkers();
       } catch (err) {
