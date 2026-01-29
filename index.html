@@ -1039,27 +1039,42 @@
     }
 
     // ========== CANVAS EVENTS ==========
+    let touchStartDistance = 0;
+    let touchStartZoom = 1;
+    let touchStartPanX = 0;
+    let touchStartPanY = 0;
+    let touchStartMidX = 0;
+    let touchStartMidY = 0;
+
     function setupCanvasEvents() {
       const container = document.getElementById('canvas-container');
       const wrapper = document.getElementById('canvas-wrapper');
 
+      // Mouse events for drawing
       wrapper.addEventListener('mousedown', handleDrawStart);
       wrapper.addEventListener('mousemove', handleDrawMove);
       wrapper.addEventListener('mouseup', handleDrawEnd);
       wrapper.addEventListener('mouseleave', handleDrawEnd);
-      wrapper.addEventListener('touchstart', handleTouchStart, { passive: false });
-      wrapper.addEventListener('touchmove', handleTouchMove, { passive: false });
-      wrapper.addEventListener('touchend', handleDrawEnd);
+
+      // Touch events
+      container.addEventListener('touchstart', handleGMTouchStart, { passive: false });
+      container.addEventListener('touchmove', handleGMTouchMove, { passive: false });
+      container.addEventListener('touchend', handleGMTouchEnd, { passive: false });
+
+      // Wheel zoom
       container.addEventListener('wheel', handleWheel, { passive: false });
 
+      // Middle mouse button for panning
       container.addEventListener('mousedown', (e) => {
-        if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
+        if (e.button === 1) { // Middle mouse button
+          e.preventDefault();
           isPanning = true;
           lastX = e.clientX;
           lastY = e.clientY;
-          e.preventDefault();
+          container.style.cursor = 'grabbing';
         }
       });
+
       container.addEventListener('mousemove', (e) => {
         if (isPanning) {
           panX += e.clientX - lastX;
@@ -1069,7 +1084,85 @@
           updateCanvasTransform();
         }
       });
-      container.addEventListener('mouseup', () => { isPanning = false; });
+
+      container.addEventListener('mouseup', (e) => {
+        if (e.button === 1 || isPanning) {
+          isPanning = false;
+          container.style.cursor = '';
+        }
+      });
+
+      container.addEventListener('mouseleave', () => {
+        if (isPanning) {
+          isPanning = false;
+          container.style.cursor = '';
+        }
+      });
+
+      // Prevent context menu on middle click
+      container.addEventListener('contextmenu', (e) => {
+        if (e.button === 1) e.preventDefault();
+      });
+    }
+
+    function handleGMTouchStart(e) {
+      if (e.touches.length === 1) {
+        // Single touch = drawing
+        e.preventDefault();
+        const touch = e.touches[0];
+        handleDrawStart(touch);
+      } else if (e.touches.length === 2) {
+        // Two fingers = pan and zoom
+        e.preventDefault();
+        isDrawing = false;
+        isPanning = true;
+        
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        
+        touchStartDistance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+        touchStartZoom = zoom;
+        touchStartPanX = panX;
+        touchStartPanY = panY;
+        touchStartMidX = (touch1.clientX + touch2.clientX) / 2;
+        touchStartMidY = (touch1.clientY + touch2.clientY) / 2;
+      }
+    }
+
+    function handleGMTouchMove(e) {
+      if (e.touches.length === 1 && isDrawing) {
+        e.preventDefault();
+        handleDrawMove(e.touches[0]);
+      } else if (e.touches.length === 2 && isPanning) {
+        e.preventDefault();
+        
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        
+        // Calculate new distance for zoom
+        const currentDistance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+        const scale = currentDistance / touchStartDistance;
+        zoom = Math.max(0.1, Math.min(5, touchStartZoom * scale));
+        
+        // Calculate pan
+        const midX = (touch1.clientX + touch2.clientX) / 2;
+        const midY = (touch1.clientY + touch2.clientY) / 2;
+        panX = touchStartPanX + (midX - touchStartMidX);
+        panY = touchStartPanY + (midY - touchStartMidY);
+        
+        updateCanvasTransform();
+        document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
+      }
+    }
+
+    function handleGMTouchEnd(e) {
+      if (e.touches.length === 0) {
+        isDrawing = false;
+        isPanning = false;
+      } else if (e.touches.length === 1) {
+        // Switched from 2 to 1 finger - don't start drawing immediately
+        isPanning = false;
+      }
     }
 
     function handleDrawStart(e) {
@@ -1086,22 +1179,6 @@
     }
 
     function handleDrawEnd() { isDrawing = false; }
-
-    function handleTouchStart(e) {
-      if (e.touches.length === 1 && !isPanning) {
-        e.preventDefault();
-        handleDrawStart(e.touches[0]);
-      } else if (e.touches.length === 2) {
-        isPanning = true;
-      }
-    }
-
-    function handleTouchMove(e) {
-      if (e.touches.length === 1 && isDrawing) {
-        e.preventDefault();
-        handleDrawMove(e.touches[0]);
-      }
-    }
 
     function getCanvasPosition(e) {
       const wrapper = document.getElementById('canvas-wrapper');
@@ -1135,20 +1212,20 @@
     // ========== ZOOM & PAN ==========
     function handleWheel(e) {
       e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      const delta = e.deltaY > 0 ? -0.05 : 0.05; // 5% steps
       zoom = Math.max(0.1, Math.min(5, zoom + delta));
       updateCanvasTransform();
       document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
     }
 
     function zoomIn() {
-      zoom = Math.min(5, zoom + 0.25);
+      zoom = Math.min(5, zoom + 0.05); // 5% steps
       updateCanvasTransform();
       document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
     }
 
     function zoomOut() {
-      zoom = Math.max(0.1, zoom - 0.25);
+      zoom = Math.max(0.1, zoom - 0.05); // 5% steps
       updateCanvasTransform();
       document.getElementById('zoom-level').textContent = Math.round(zoom * 100) + '%';
     }
@@ -1406,23 +1483,105 @@
     function setupPlayerCanvasEvents() {
       const container = document.getElementById('player-canvas-container');
       const wrapper = document.getElementById('player-canvas-wrapper');
+      
+      // Variables for player touch
+      let playerTouchStartDistance = 0;
+      let playerTouchStartZoom = 1;
+      let playerTouchStartPanX = 0;
+      let playerTouchStartPanY = 0;
+      let playerTouchStartMidX = 0;
+      let playerTouchStartMidY = 0;
+      let playerIsPanning = false;
+      let playerLastX = 0;
+      let playerLastY = 0;
+
+      // Click for markers
       wrapper.addEventListener('click', handlePlayerClick);
+      
+      // Wheel zoom
       container.addEventListener('wheel', handlePlayerWheel, { passive: false });
 
-      let isPan = false, lx = 0, ly = 0;
+      // Touch events for pan and zoom
+      container.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          playerIsPanning = true;
+          
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          
+          playerTouchStartDistance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+          playerTouchStartZoom = playerZoom;
+          playerTouchStartPanX = playerPanX;
+          playerTouchStartPanY = playerPanY;
+          playerTouchStartMidX = (touch1.clientX + touch2.clientX) / 2;
+          playerTouchStartMidY = (touch1.clientY + touch2.clientY) / 2;
+        }
+      }, { passive: false });
+
+      container.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && playerIsPanning) {
+          e.preventDefault();
+          
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          
+          // Calculate new distance for zoom
+          const currentDistance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+          const scale = currentDistance / playerTouchStartDistance;
+          playerZoom = Math.max(0.1, Math.min(5, playerTouchStartZoom * scale));
+          
+          // Calculate pan
+          const midX = (touch1.clientX + touch2.clientX) / 2;
+          const midY = (touch1.clientY + touch2.clientY) / 2;
+          playerPanX = playerTouchStartPanX + (midX - playerTouchStartMidX);
+          playerPanY = playerTouchStartPanY + (midY - playerTouchStartMidY);
+          
+          updatePlayerCanvasTransform();
+          document.getElementById('player-zoom-level').textContent = Math.round(playerZoom * 100) + '%';
+        }
+      }, { passive: false });
+
+      container.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+          playerIsPanning = false;
+        }
+      }, { passive: false });
+
+      // Middle mouse button for panning
       container.addEventListener('mousedown', (e) => {
-        if (!markerMode && e.button === 0) { isPan = true; lx = e.clientX; ly = e.clientY; }
+        if (e.button === 1) { // Middle mouse button
+          e.preventDefault();
+          playerIsPanning = true;
+          playerLastX = e.clientX;
+          playerLastY = e.clientY;
+          container.style.cursor = 'grabbing';
+        }
       });
+
       container.addEventListener('mousemove', (e) => {
-        if (isPan) {
-          playerPanX += e.clientX - lx;
-          playerPanY += e.clientY - ly;
-          lx = e.clientX; ly = e.clientY;
+        if (playerIsPanning) {
+          playerPanX += e.clientX - playerLastX;
+          playerPanY += e.clientY - playerLastY;
+          playerLastX = e.clientX;
+          playerLastY = e.clientY;
           updatePlayerCanvasTransform();
         }
       });
-      container.addEventListener('mouseup', () => isPan = false);
-      container.addEventListener('mouseleave', () => isPan = false);
+
+      container.addEventListener('mouseup', (e) => {
+        if (e.button === 1 || playerIsPanning) {
+          playerIsPanning = false;
+          container.style.cursor = '';
+        }
+      });
+
+      container.addEventListener('mouseleave', () => {
+        if (playerIsPanning) {
+          playerIsPanning = false;
+          container.style.cursor = '';
+        }
+      });
     }
 
     function handlePlayerClick(e) {
@@ -1477,19 +1636,20 @@
 
     function handlePlayerWheel(e) {
       e.preventDefault();
-      playerZoom = Math.max(0.1, Math.min(5, playerZoom + (e.deltaY > 0 ? -0.1 : 0.1)));
+      const delta = e.deltaY > 0 ? -0.05 : 0.05; // 5% steps
+      playerZoom = Math.max(0.1, Math.min(5, playerZoom + delta));
       updatePlayerCanvasTransform();
       document.getElementById('player-zoom-level').textContent = Math.round(playerZoom * 100) + '%';
     }
 
     function playerZoomIn() {
-      playerZoom = Math.min(5, playerZoom + 0.25);
+      playerZoom = Math.min(5, playerZoom + 0.05); // 5% steps
       updatePlayerCanvasTransform();
       document.getElementById('player-zoom-level').textContent = Math.round(playerZoom * 100) + '%';
     }
 
     function playerZoomOut() {
-      playerZoom = Math.max(0.1, playerZoom - 0.25);
+      playerZoom = Math.max(0.1, playerZoom - 0.05); // 5% steps
       updatePlayerCanvasTransform();
       document.getElementById('player-zoom-level').textContent = Math.round(playerZoom * 100) + '%';
     }
